@@ -1,9 +1,12 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Sparkles as SparklesIcon, Copy, Check, Eye, Send, ArrowLeft, Heart, Share2, MessageCircle, Mail } from "lucide-react";
+import { Sparkles as SparklesIcon, Copy, Check, Eye, Send, ArrowLeft, Heart, Share2, MessageCircle, Mail, Users, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Confetti } from "@/components/surprisync/Sparkles";
-import { getSurprise, occasionMeta, themes } from "@/lib/surprises";
+import { getSurprise, occasionMeta, themes, createSession, getSession } from "@/lib/surprises";
+import { PredictionCard } from "@/components/surprisync/PredictionCard";
+import { EngagementDashboard } from "@/components/surprisync/EngagementDashboard";
+import { UnlockBadge } from "@/components/surprisync/UnlockBadge";
 import { toast } from "sonner";
 
 const Share = () => {
@@ -11,8 +14,22 @@ const Share = () => {
   const surprise = useMemo(() => (id ? getSurprise(id) : undefined), [id]);
   const [copied, setCopied] = useState(false);
   const [confetti, setConfetti] = useState(true);
+  const [unlockedFeature, setUnlockedFeature] = useState<string | null>(null);
+  const [showEngagement, setShowEngagement] = useState(false);
 
-  setTimeout(() => setConfetti(false), 4500);
+  useEffect(() => {
+    setTimeout(() => setConfetti(false), 4500);
+  }, []);
+
+  useEffect(() => {
+    if (id) {
+      const session = getSession(id);
+      if (!session) {
+        createSession(id);
+      }
+      setShowEngagement(true);
+    }
+  }, [id]);
 
   if (!surprise) {
     return (
@@ -62,6 +79,7 @@ const Share = () => {
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,white_0%,transparent_55%)] opacity-30" />
       <Sparkles count={28} />
       <Confetti active={confetti} />
+      <UnlockBadge feature={unlockedFeature || ""} show={!!unlockedFeature} />
 
       <div className="relative z-10 container mx-auto px-4 py-8 max-w-2xl text-white">
         <div className="flex items-center justify-between mb-6">
@@ -84,6 +102,13 @@ const Share = () => {
               : "It's ready to open the second they tap the link."}
           </p>
         </div>
+
+        {/* Engagement Dashboard */}
+        {showEngagement && (
+          <div className="mt-8 animate-fade-up" style={{ animationDelay: "150ms" }}>
+            <EngagementDashboard surpriseId={surprise.id} toName={surprise.toName} />
+          </div>
+        )}
 
         {/* Card preview */}
         <div className="mt-8 glass-dark rounded-[2rem] p-6 sm:p-8 animate-fade-up" style={{ animationDelay: "150ms" }}>
@@ -125,6 +150,22 @@ const Share = () => {
           </div>
         </div>
 
+        {/* Prediction Card */}
+        {showEngagement && (
+          <div className="mt-8 animate-fade-up" style={{ animationDelay: "250ms" }}>
+            <PredictionCard 
+              surpriseId={surprise.id} 
+              onAnswer={() => {
+                // Check if we should unlock a feature
+                const session = getSession(surprise.id);
+                if (session && session.unlockedFeatures.includes("prediction_master") && !unlockedFeature) {
+                  setUnlockedFeature("prediction_master");
+                }
+              }}
+            />
+          </div>
+        )}
+
         {/* Primary actions */}
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3 animate-fade-up" style={{ animationDelay: "300ms" }}>
           <Button asChild className="rounded-full bg-white text-foreground hover:bg-white/90 h-12 px-5 font-semibold">
@@ -135,6 +176,20 @@ const Share = () => {
           <Button asChild variant="ghost" className="rounded-full text-white hover:bg-white/10 h-12 px-5 border border-white/30">
             <Link to={`/s/${surprise.id}`}>
               Open the live link <Send className="w-4 h-4 ml-2" />
+            </Link>
+          </Button>
+        </div>
+
+        {/* Secondary actions */}
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-3 animate-fade-up" style={{ animationDelay: "350ms" }}>
+          <Button asChild variant="ghost" className="rounded-full text-white hover:bg-white/10 h-10 px-5 text-sm border border-white/20">
+            <Link to={`/contribution/${surprise.id}`}>
+              <Users className="w-4 h-4 mr-2" /> Group Wishes
+            </Link>
+          </Button>
+          <Button asChild variant="ghost" className="rounded-full text-white hover:bg-white/10 h-10 px-5 text-sm border border-white/20">
+            <Link to={`/analytics/${surprise.id}`}>
+              <BarChart3 className="w-4 h-4 mr-2" /> Analytics
             </Link>
           </Button>
         </div>

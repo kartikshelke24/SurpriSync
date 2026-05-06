@@ -8,6 +8,9 @@ import NotFound from "./pages/NotFound.tsx";
 import Create from "./pages/Create.tsx";
 import Reveal from "./pages/Reveal.tsx";
 import Share from "./pages/Share.tsx";
+import GroupContribution from "./pages/GroupContribution.tsx";
+import Analytics from "./pages/Analytics.tsx";
+import Dashboard from "./pages/Dashboard.tsx";
 
 const queryClient = new QueryClient();
 
@@ -19,9 +22,12 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/create" element={<Create />} />
           <Route path="/s/:id" element={<Reveal />} />
           <Route path="/s/:id/share" element={<Share />} />
+          <Route path="/contribution/:id" element={<GroupContribution />} />
+          <Route path="/analytics/:id" element={<Analytics />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

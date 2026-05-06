@@ -31,7 +31,9 @@ const Navbar = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button variant="ghost" className="hidden sm:inline-flex rounded-full">Sign in</Button>
+            <Button asChild variant="ghost" className="hidden sm:inline-flex rounded-full">
+              <Link to="/dashboard">Dashboard</Link>
+            </Button>
             <Button asChild className="rounded-full bg-magic hover:opacity-90 shadow-magic text-white border-0">
               <Link to="/create">Create surprise</Link>
             </Button>
