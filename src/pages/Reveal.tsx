@@ -16,8 +16,11 @@ import {
   Play,
 } from "lucide-react";
 import { Sparkles, Confetti } from "@/components/surprisync/Sparkles";
+import { AnimatedLetter } from "@/components/surprisync/AnimatedLetter";
+import { EnhancedStoryStage } from "@/components/surprisync/EnhancedStoryStage";
 import { Button } from "@/components/ui/button";
 import { getSurprise, occasionMeta, themes, Surprise, updateEngagement } from "@/lib/surprises";
+import { soundManager } from "@/lib/soundManager";
 import { toast } from "sonner";
 
 function useCountdown(target: string) {
@@ -100,6 +103,7 @@ const RevealView = ({ surprise, preview }: { surprise: Surprise; preview: boolea
 
   const begin = () => {
     setStage("ribbon");
+    soundManager?.playPop(surprise.occasion);
     if (!preview) {
       updateEngagement(surprise.id, { recipientStartedRevealing: true });
       try {
@@ -108,7 +112,10 @@ const RevealView = ({ surprise, preview }: { surprise: Surprise; preview: boolea
         channel.close();
       } catch {}
     }
-    setTimeout(() => setStage("opening"), 1600);
+    setTimeout(() => {
+      setStage("opening");
+      soundManager?.playChime(surprise.occasion);
+    }, 1600);
     setTimeout(() => {
       setStage("story");
       setConfetti(true);
@@ -125,7 +132,7 @@ const RevealView = ({ surprise, preview }: { surprise: Surprise; preview: boolea
       <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-white/20 blur-3xl animate-blob" />
       <div className="absolute -bottom-32 -right-32 w-[28rem] h-[28rem] rounded-full bg-white/15 blur-3xl animate-blob" style={{ animationDelay: "4s" }} />
       <Sparkles count={30} />
-      <Confetti active={confetti} />
+      <Confetti active={confetti} occasion={surprise.occasion} />
 
       {preview && (
         <div className="relative z-20 container mx-auto px-4 pt-6 flex items-center justify-between text-white">
@@ -146,9 +153,9 @@ const RevealView = ({ surprise, preview }: { surprise: Surprise; preview: boolea
         ) : stage === "opening" ? (
           <OpeningStage surprise={surprise} />
         ) : stage === "story" ? (
-          <StoryStage surprise={surprise} onDone={() => setStage("letter")} />
+          <EnhancedStoryStage surprise={surprise} onDone={() => setStage("letter")} />
         ) : stage === "letter" ? (
-          <LetterStage surprise={surprise} onDone={() => setStage("encore")} />
+          <AnimatedLetter surprise={surprise} onDone={() => setStage("encore")} />
         ) : (
           <EncoreStage surprise={surprise} />
         )}
@@ -321,204 +328,9 @@ const GiftBox = ({ tied = false, untying = false }: { tied?: boolean; untying?: 
   </svg>
 );
 
-/* ---------------- STORY (photos) ---------------- */
+/* Use the enhanced story stage */
 
-const StoryStage = ({ surprise, onDone }: { surprise: Surprise; onDone: () => void }) => {
-  const photos = surprise.photos.length ? surprise.photos : [];
-  const [idx, setIdx] = useState(0);
-  const [paused, setPaused] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const DURATION = 4500;
-
-  useEffect(() => {
-    if (!photos.length) {
-      const t = setTimeout(onDone, 600);
-      return () => clearTimeout(t);
-    }
-    if (paused) return;
-    const start = Date.now();
-    const tick = setInterval(() => {
-      const p = Math.min(1, (Date.now() - start) / DURATION);
-      setProgress(p);
-      if (p >= 1) {
-        clearInterval(tick);
-        if (idx < photos.length - 1) {
-          setIdx(idx + 1);
-          setProgress(0);
-        } else {
-          onDone();
-        }
-      }
-    }, 60);
-    return () => clearInterval(tick);
-  }, [idx, paused, photos.length]);
-
-  if (!photos.length) {
-    return (
-      <div className="grid place-items-center min-h-[60vh] text-center animate-fade-up">
-        <div className="text-6xl mb-4">💌</div>
-        <p className="font-display text-2xl">Skipping ahead to the words…</p>
-      </div>
-    );
-  }
-
-  const next = () => {
-    if (idx < photos.length - 1) {
-      setIdx(idx + 1);
-      setProgress(0);
-    } else onDone();
-  };
-  const prev = () => {
-    if (idx > 0) {
-      setIdx(idx - 1);
-      setProgress(0);
-    }
-  };
-
-  const captions = [
-    "Remember this?",
-    "And this one…",
-    "This made me smile.",
-    "I keep coming back to this.",
-    "You, being you.",
-    "Always you.",
-  ];
-
-  return (
-    <div className="animate-fade-up">
-      <div className="relative rounded-[2rem] overflow-hidden aspect-[3/4] sm:aspect-[4/5] glass-dark">
-        {/* Progress bars */}
-        <div className="absolute top-3 inset-x-3 z-20 flex gap-1.5">
-          {photos.map((_, i) => (
-            <div key={i} className="flex-1 h-1 rounded-full bg-white/30 overflow-hidden">
-              <div
-                className="h-full bg-white transition-[width] duration-100 ease-linear"
-                style={{ width: `${i < idx ? 100 : i === idx ? progress * 100 : 0}%` }}
-              />
-            </div>
-          ))}
-        </div>
-
-        {photos.map((src, i) => (
-          <div
-            key={i}
-            className={`absolute inset-0 transition-opacity duration-700 ${i === idx ? "opacity-100" : "opacity-0 pointer-events-none"}`}
-          >
-            <img
-              src={src}
-              alt=""
-              className="absolute inset-0 w-full h-full object-cover"
-              style={i === idx && !paused ? { animation: "kenBurns 5s ease-out both" } : {}}
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-black/30" />
-            {i === idx && (
-              <div className="absolute bottom-10 inset-x-0 px-6 text-center animate-fade-up">
-                <div className="text-xs uppercase tracking-[0.3em] text-white/80">
-                  Memory {i + 1} of {photos.length}
-                </div>
-                <p className="mt-2 font-display italic text-2xl sm:text-3xl text-white drop-shadow-lg">
-                  {captions[i % captions.length]}
-                </p>
-              </div>
-            )}
-          </div>
-        ))}
-
-        {/* Tap zones */}
-        <button onClick={prev} aria-label="Previous" className="absolute left-0 top-0 bottom-0 w-1/3 z-10" />
-        <button onClick={next} aria-label="Next" className="absolute right-0 top-0 bottom-0 w-1/3 z-10" />
-
-        {/* Controls */}
-        <div className="absolute bottom-3 inset-x-0 z-20 flex items-center justify-center gap-3">
-          <button onClick={() => setPaused((p) => !p)} className="glass-dark rounded-full p-2 text-white">
-            {paused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
-          </button>
-          <button onClick={onDone} className="glass-dark rounded-full px-4 py-2 text-white text-xs font-semibold">
-            Skip to message →
-          </button>
-        </div>
-      </div>
-
-      <style>{`@keyframes kenBurns { from { transform: scale(1.05); } to { transform: scale(1.18); } }`}</style>
-    </div>
-  );
-};
-
-/* ---------------- LETTER (typewriter message) ---------------- */
-
-const LetterStage = ({ surprise, onDone }: { surprise: Surprise; onDone: () => void }) => {
-  const meta = occasionMeta[surprise.occasion];
-  const [typed, setTyped] = useState("");
-  const [done, setDone] = useState(false);
-
-  useEffect(() => {
-    let i = 0;
-    const text = surprise.message;
-    const id = setInterval(() => {
-      i++;
-      setTyped(text.slice(0, i));
-      if (i >= text.length) {
-        clearInterval(id);
-        setDone(true);
-        // Track that the surprise was fully revealed
-        updateEngagement(surprise.id, {
-          revealedAt: new Date().toISOString(),
-        });
-        try {
-          const channel = new BroadcastChannel(`reveal_${surprise.id}`);
-          channel.postMessage({
-            type: "reveal_completed",
-            revealedAt: new Date().toISOString(),
-          });
-          channel.close();
-        } catch {}
-      }
-    }, 28);
-    return () => clearInterval(id);
-  }, [surprise.message, surprise.id]);
-
-  return (
-    <article className="space-y-7 animate-fade-up">
-      <div className="text-center">
-        <div className="inline-flex items-center gap-2 glass-dark rounded-full px-4 py-1.5 text-xs font-semibold tracking-widest uppercase">
-          {meta.emoji} {meta.label}
-        </div>
-        <h1 className="mt-5 font-display text-4xl sm:text-5xl font-semibold leading-[1.05] drop-shadow">
-          {surprise.title}
-        </h1>
-      </div>
-
-      <div className="glass-dark rounded-[2rem] p-7 sm:p-10 relative">
-        <div className="absolute -top-3 left-8 text-6xl text-white/30 font-display select-none">"</div>
-        <p className="font-display text-xl sm:text-2xl leading-relaxed whitespace-pre-wrap min-h-[6rem]">
-          {typed}
-          {!done && <span className="inline-block w-[2px] h-6 ml-1 bg-white align-middle animate-pulse" />}
-        </p>
-        <div className="mt-8 flex items-center gap-3 text-sm">
-          <div className="w-11 h-11 rounded-full bg-warm grid place-items-center font-semibold shadow-lg">
-            {surprise.fromName.slice(0, 1).toUpperCase()}
-          </div>
-          <div>
-            <div className="font-display italic text-lg">— {surprise.fromName}</div>
-            <div className="text-xs opacity-80">
-              {new Date(surprise.createdAt).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="text-center">
-        <Button
-          onClick={onDone}
-          disabled={!done}
-          className="rounded-full bg-white text-foreground hover:bg-white/90 disabled:opacity-50 h-12 px-7 font-semibold"
-        >
-          {done ? <>Continue <Heart className="w-4 h-4 ml-2 fill-primary text-primary" /></> : "Reading…"}
-        </Button>
-      </div>
-    </article>
-  );
-};
+// Letter stage is now handled by AnimatedLetter component imported above
 
 /* ---------------- ENCORE (audio + share) ---------------- */
 
