@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { Sparkles, Confetti } from "@/components/surprisync/Sparkles";
 import { Button } from "@/components/ui/button";
-import { getSurprise, occasionMeta, themes, Surprise } from "@/lib/surprises";
+import { getSurprise, occasionMeta, themes, Surprise, updateEngagement } from "@/lib/surprises";
 import { toast } from "sonner";
 
 function useCountdown(target: string) {
@@ -73,8 +73,41 @@ const RevealView = ({ surprise, preview }: { surprise: Surprise; preview: boolea
   const [stage, setStage] = useState<Stage>("intro");
   const [confetti, setConfetti] = useState(false);
 
+  // Track that the reveal page was opened
+  useEffect(() => {
+    if (!preview) {
+      updateEngagement(surprise.id, {
+        hasBeenOpened: true,
+        lastClicked: new Date().toISOString(),
+      });
+
+      // Broadcast to Share page via BroadcastChannel
+      try {
+        const channel = new BroadcastChannel(`reveal_${surprise.id}`);
+        channel.postMessage({
+          type: "reveal_started",
+          engagement: {
+            hasBeenOpened: true,
+            lastClicked: new Date().toISOString(),
+          },
+        });
+        channel.close();
+      } catch {
+        // BroadcastChannel not supported
+      }
+    }
+  }, [surprise.id, preview]);
+
   const begin = () => {
     setStage("ribbon");
+    if (!preview) {
+      updateEngagement(surprise.id, { recipientStartedRevealing: true });
+      try {
+        const channel = new BroadcastChannel(`reveal_${surprise.id}`);
+        channel.postMessage({ type: "stage_changed", stage: "ribbon" });
+        channel.close();
+      } catch {}
+    }
     setTimeout(() => setStage("opening"), 1600);
     setTimeout(() => {
       setStage("story");
@@ -427,10 +460,22 @@ const LetterStage = ({ surprise, onDone }: { surprise: Surprise; onDone: () => v
       if (i >= text.length) {
         clearInterval(id);
         setDone(true);
+        // Track that the surprise was fully revealed
+        updateEngagement(surprise.id, {
+          revealedAt: new Date().toISOString(),
+        });
+        try {
+          const channel = new BroadcastChannel(`reveal_${surprise.id}`);
+          channel.postMessage({
+            type: "reveal_completed",
+            revealedAt: new Date().toISOString(),
+          });
+          channel.close();
+        } catch {}
       }
     }, 28);
     return () => clearInterval(id);
-  }, [surprise.message]);
+  }, [surprise.message, surprise.id]);
 
   return (
     <article className="space-y-7 animate-fade-up">

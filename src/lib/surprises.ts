@@ -1,5 +1,22 @@
 export type Occasion = "birthday" | "anniversary" | "friendship" | "love" | "thanks" | "justbecause";
 
+export interface EngagementMetrics {
+  linkClicks: number;
+  lastClicked?: string; // ISO
+  hasBeenOpened: boolean;
+  recipientStartedRevealing: boolean;
+  revealedAt?: string; // ISO
+  questionsAnswered: Record<string, string>;
+}
+
+export interface ShareSession {
+  id: string;
+  surpriseId: string;
+  sharedAt: string; // ISO
+  engagement: EngagementMetrics;
+  unlockedFeatures: string[];
+}
+
 export interface Surprise {
   id: string;
   occasion: Occasion;
@@ -13,9 +30,11 @@ export interface Surprise {
   voiceNote: string; // data URL
   revealAt: string; // ISO
   createdAt: string;
+  engagement?: EngagementMetrics;
 }
 
 const KEY = "surprisync.surprises";
+const SESSIONS_KEY = "surprisync.sessions";
 
 export const occasionMeta: Record<Occasion, { label: string; emoji: string; vibe: string; gradient: string }> = {
   birthday: { label: "Birthday", emoji: "🎂", vibe: "Cake, candles & a little chaos", gradient: "from-pink-400 via-rose-400 to-amber-300" },
@@ -52,4 +71,58 @@ export function getSurprise(id: string): Surprise | undefined {
 
 export function newId() {
   return Math.random().toString(36).slice(2, 9);
+}
+
+// Engagement tracking functions
+export function loadSessions(): ShareSession[] {
+  try {
+    return JSON.parse(localStorage.getItem(SESSIONS_KEY) || "[]");
+  } catch {
+    return [];
+  }
+}
+
+export function saveSession(session: ShareSession) {
+  const all = loadSessions();
+  const idx = all.findIndex((s) => s.id === session.id);
+  if (idx >= 0) all[idx] = session;
+  else all.push(session);
+  localStorage.setItem(SESSIONS_KEY, JSON.stringify(all));
+}
+
+export function getSession(surpriseId: string): ShareSession | undefined {
+  return loadSessions().find((s) => s.surpriseId === surpriseId);
+}
+
+export function createSession(surpriseId: string): ShareSession {
+  const session: ShareSession = {
+    id: newId(),
+    surpriseId,
+    sharedAt: new Date().toISOString(),
+    engagement: {
+      linkClicks: 0,
+      hasBeenOpened: false,
+      recipientStartedRevealing: false,
+      questionsAnswered: {},
+    },
+    unlockedFeatures: [],
+  };
+  saveSession(session);
+  return session;
+}
+
+export function updateEngagement(surpriseId: string, metrics: Partial<EngagementMetrics>) {
+  const session = getSession(surpriseId);
+  if (session) {
+    session.engagement = { ...session.engagement, ...metrics };
+    saveSession(session);
+  }
+}
+
+export function unlockFeature(surpriseId: string, feature: string) {
+  const session = getSession(surpriseId);
+  if (session && !session.unlockedFeatures.includes(feature)) {
+    session.unlockedFeatures.push(feature);
+    saveSession(session);
+  }
 }
