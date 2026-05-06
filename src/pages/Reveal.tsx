@@ -18,6 +18,10 @@ import {
 import { Sparkles, Confetti } from "@/components/surprisync/Sparkles";
 import { AnimatedLetter } from "@/components/surprisync/AnimatedLetter";
 import { EnhancedStoryStage } from "@/components/surprisync/EnhancedStoryStage";
+import { IntroScreen } from "@/components/surprisync/IntroScreen";
+import { StepIndicator } from "@/components/surprisync/StepIndicator";
+import { MusicPlayer } from "@/components/surprisync/MusicPlayer";
+import { UnlockBadge } from "@/components/surprisync/UnlockBadge";
 import { Button } from "@/components/ui/button";
 import { getSurprise, occasionMeta, themes, Surprise, updateEngagement } from "@/lib/surprises";
 import { soundManager } from "@/lib/soundManager";
@@ -38,6 +42,7 @@ function useCountdown(target: string) {
 }
 
 type Stage =
+  | "splash"     // Initial intro screen with animated message
   | "intro"      // "A surprise from X for Y" — tap to begin
   | "ribbon"     // ribbon untying animation
   | "opening"    // gift box opening burst
@@ -73,8 +78,9 @@ const RevealView = ({ surprise, preview }: { surprise: Surprise; preview: boolea
   const cd = useCountdown(surprise.revealAt);
   const locked = !preview && cd.diff > 0;
 
-  const [stage, setStage] = useState<Stage>("intro");
+  const [stage, setStage] = useState<Stage>("splash");
   const [confetti, setConfetti] = useState(false);
+  const [unlockedFeature, setUnlockedFeature] = useState<string | null>(null);
 
   // Track that the reveal page was opened
   useEffect(() => {
@@ -133,33 +139,58 @@ const RevealView = ({ surprise, preview }: { surprise: Surprise; preview: boolea
       <div className="absolute -bottom-32 -right-32 w-[28rem] h-[28rem] rounded-full bg-white/15 blur-3xl animate-blob" style={{ animationDelay: "4s" }} />
       <Sparkles count={30} />
       <Confetti active={confetti} occasion={surprise.occasion} />
+      <UnlockBadge feature={unlockedFeature || ""} show={!!unlockedFeature} />
 
-      {preview && (
-        <div className="relative z-20 container mx-auto px-4 pt-6 flex items-center justify-between text-white">
-          <Link to={`/s/${surprise.id}/share`} className="flex items-center gap-2 text-sm font-medium opacity-90 hover:opacity-100">
-            <ArrowLeft className="w-4 h-4" /> Back
-          </Link>
-          <span className="glass-dark text-white rounded-full px-3 py-1 text-xs font-semibold">Preview mode</span>
-        </div>
+      {stage === "splash" ? (
+        <IntroScreen surprise={surprise} onStart={() => setStage("intro")} />
+      ) : (
+        <>
+          {preview && (
+            <div className="relative z-20 container mx-auto px-4 pt-6 flex items-center justify-between text-white">
+              <Link to={`/s/${surprise.id}/share`} className="flex items-center gap-2 text-sm font-medium opacity-90 hover:opacity-100">
+                <ArrowLeft className="w-4 h-4" /> Back
+              </Link>
+              <span className="glass-dark text-white rounded-full px-3 py-1 text-xs font-semibold">Preview mode</span>
+            </div>
+          )}
+
+          {/* Music player in top corner */}
+          {!locked && (
+            <div className="absolute top-6 right-6 z-20">
+              <MusicPlayer surprise={surprise} />
+            </div>
+          )}
+
+          {/* Progress indicator */}
+          {!locked && stage !== "splash" && (
+            <div className="absolute top-6 left-6 z-20">
+              <StepIndicator
+                currentStep={["intro", "ribbon", "opening", "story", "letter", "encore"].indexOf(stage)}
+                totalSteps={6}
+                stepLabels={["Prepare", "Unwrap", "Open", "Memories", "Message", "Celebrate"]}
+              />
+            </div>
+          )}
+
+          <div className="relative z-10 container mx-auto px-4 py-8 sm:py-14 max-w-2xl text-white">
+            {locked ? (
+              <LockedCard surprise={surprise} cd={cd} />
+            ) : stage === "intro" ? (
+              <IntroStage surprise={surprise} onBegin={begin} />
+            ) : stage === "ribbon" ? (
+              <RibbonStage surprise={surprise} />
+            ) : stage === "opening" ? (
+              <OpeningStage surprise={surprise} />
+            ) : stage === "story" ? (
+              <EnhancedStoryStage surprise={surprise} onDone={() => setStage("letter")} />
+            ) : stage === "letter" ? (
+              <AnimatedLetter surprise={surprise} onDone={() => setStage("encore")} />
+            ) : (
+              <EncoreStage surprise={surprise} />
+            )}
+          </div>
+        </>
       )}
-
-      <div className="relative z-10 container mx-auto px-4 py-8 sm:py-14 max-w-2xl text-white">
-        {locked ? (
-          <LockedCard surprise={surprise} cd={cd} />
-        ) : stage === "intro" ? (
-          <IntroStage surprise={surprise} onBegin={begin} />
-        ) : stage === "ribbon" ? (
-          <RibbonStage surprise={surprise} />
-        ) : stage === "opening" ? (
-          <OpeningStage surprise={surprise} />
-        ) : stage === "story" ? (
-          <EnhancedStoryStage surprise={surprise} onDone={() => setStage("letter")} />
-        ) : stage === "letter" ? (
-          <AnimatedLetter surprise={surprise} onDone={() => setStage("encore")} />
-        ) : (
-          <EncoreStage surprise={surprise} />
-        )}
-      </div>
     </main>
   );
 };

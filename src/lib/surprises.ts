@@ -17,6 +17,23 @@ export interface ShareSession {
   unlockedFeatures: string[];
 }
 
+export interface Contributor {
+  id: string;
+  name: string;
+  videoWish: string; // data URL or URL
+  addedAt: string; // ISO
+  avatar?: string; // emoji or initials
+}
+
+export interface GroupContribution {
+  id: string;
+  surpriseId: string;
+  createdAt: string;
+  inviteLink?: string;
+  contributors: Contributor[];
+  isActive: boolean;
+}
+
 export interface Surprise {
   id: string;
   occasion: Occasion;
@@ -31,6 +48,7 @@ export interface Surprise {
   revealAt: string; // ISO
   createdAt: string;
   engagement?: EngagementMetrics;
+  groupContribution?: GroupContribution;
 }
 
 const KEY = "surprisync.surprises";
@@ -124,5 +142,86 @@ export function unlockFeature(surpriseId: string, feature: string) {
   if (session && !session.unlockedFeatures.includes(feature)) {
     session.unlockedFeatures.push(feature);
     saveSession(session);
+  }
+}
+
+// Group contribution functions
+const CONTRIBUTIONS_KEY = "surprisync.contributions";
+
+export function loadContributions(): GroupContribution[] {
+  try {
+    return JSON.parse(localStorage.getItem(CONTRIBUTIONS_KEY) || "[]");
+  } catch {
+    return [];
+  }
+}
+
+export function saveContribution(contribution: GroupContribution) {
+  const all = loadContributions();
+  const idx = all.findIndex((c) => c.id === contribution.id);
+  if (idx >= 0) all[idx] = contribution;
+  else all.push(contribution);
+  localStorage.setItem(CONTRIBUTIONS_KEY, JSON.stringify(all));
+}
+
+export function createGroupContribution(surpriseId: string): GroupContribution {
+  const contribution: GroupContribution = {
+    id: newId(),
+    surpriseId,
+    createdAt: new Date().toISOString(),
+    inviteLink: `${window.location.origin}/contribute/${newId()}`,
+    contributors: [],
+    isActive: true,
+  };
+  saveContribution(contribution);
+  return contribution;
+}
+
+export function getGroupContribution(surpriseId: string): GroupContribution | undefined {
+  return loadContributions().find((c) => c.surpriseId === surpriseId);
+}
+
+export function addContributor(surpriseId: string, contributor: Contributor) {
+  const contribution = getGroupContribution(surpriseId);
+  if (contribution) {
+    contribution.contributors.push(contributor);
+    saveContribution(contribution);
+  }
+}
+
+export function getContributorsForSurprise(surpriseId: string): Contributor[] {
+  const contribution = getGroupContribution(surpriseId);
+  return contribution?.contributors || [];
+}
+
+// Get all surprises
+export function getAllSurprises(): Surprise[] {
+  try {
+    const all = localStorage.getItem(KEY);
+    if (!all) return [];
+    const parsed = JSON.parse(all);
+    return Array.isArray(parsed) ? parsed : Object.values(parsed);
+  } catch {
+    return [];
+  }
+}
+
+// Delete a surprise
+export function deleteSurprise(id: string) {
+  try {
+    const all = localStorage.getItem(KEY);
+    if (!all) return;
+    const parsed = JSON.parse(all);
+    const isArray = Array.isArray(parsed);
+    
+    if (isArray) {
+      const filtered = parsed.filter((s: Surprise) => s.id !== id);
+      localStorage.setItem(KEY, JSON.stringify(filtered));
+    } else {
+      delete parsed[id];
+      localStorage.setItem(KEY, JSON.stringify(parsed));
+    }
+  } catch {
+    // Silent fail
   }
 }

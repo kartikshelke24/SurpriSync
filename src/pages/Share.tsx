@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Sparkles as SparklesIcon, Copy, Check, Eye, Send, ArrowLeft, Heart, Share2, MessageCircle, Mail } from "lucide-react";
+import { Sparkles as SparklesIcon, Copy, Check, Eye, Send, ArrowLeft, Heart, Share2, MessageCircle, Mail, Users, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Confetti } from "@/components/surprisync/Sparkles";
 import { getSurprise, occasionMeta, themes, createSession, getSession } from "@/lib/surprises";
@@ -176,6 +176,20 @@ const Share = () => {
           <Button asChild variant="ghost" className="rounded-full text-white hover:bg-white/10 h-12 px-5 border border-white/30">
             <Link to={`/s/${surprise.id}`}>
               Open the live link <Send className="w-4 h-4 ml-2" />
+            </Link>
+          </Button>
+        </div>
+
+        {/* Secondary actions */}
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-3 animate-fade-up" style={{ animationDelay: "350ms" }}>
+          <Button asChild variant="ghost" className="rounded-full text-white hover:bg-white/10 h-10 px-5 text-sm border border-white/20">
+            <Link to={`/contribution/${surprise.id}`}>
+              <Users className="w-4 h-4 mr-2" /> Group Wishes
+            </Link>
+          </Button>
+          <Button asChild variant="ghost" className="rounded-full text-white hover:bg-white/10 h-10 px-5 text-sm border border-white/20">
+            <Link to={`/analytics/${surprise.id}`}>
+              <BarChart3 className="w-4 h-4 mr-2" /> Analytics
             </Link>
           </Button>
         </div>
